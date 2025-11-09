@@ -129,6 +129,12 @@ const Documents = ({ indexBy } = DefaultOptions) => async ({ ipfs, identity, add
     }
   }
 
+  const iter = async function * (opts = {}) {
+    for await (const entry of log.iter(opts)) {
+      yield entry.payload
+    }
+  }
+
   /**
    * Returns all documents.
    * @function

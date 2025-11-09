@@ -482,6 +482,87 @@ const Log = async (identity, { logId, logHeads, access, entryStorage, headsStora
     }
   }
 
+  const iter = async function * ({ amount = -1, gt, gte, lt, lte } = {}) {
+    // TODO: write comments on how the iterator algorithm works
+
+    if (amount === 0) {
+      return
+    }
+
+    if (typeof lte === 'string') {
+      lte = [await get(lte)]
+    }
+
+    if (typeof lt === 'string') {
+      const entry = await get(lt)
+      const nexts = await Promise.all(entry.next.map(n => get(n)))
+      lt = nexts
+    }
+
+    if (lt != null && !Array.isArray(lt)) throw new Error('lt must be a string or an array of Entries')
+    if (lte != null && !Array.isArray(lte)) throw new Error('lte must be a string or an array of Entries')
+
+    const start = (lt || (lte || await heads())).filter(i => i != null)
+    const end = (gt || gte) ? await get(gt || gte) : null
+
+    const amountToIterate = (end || amount === -1) ? -1 : amount
+
+    const check = {}
+    let count = 0
+    const shouldStopTraversal = async (entry) => {
+      if (!entry) {
+        return false
+      }
+      if(entry.payload.op === 'PUT' && !check[entry.payload.key]){
+        check[entry.payload.key] = 1
+        count++
+      }
+      if (count >= amountToIterate && amountToIterate !== -1) {
+        return true
+      }
+      if (end && Entry.isEqual(entry, end)) {
+        return true
+      }
+      return false
+    }
+
+    const useBuffer = end && amount !== -1 && !lt && !lte
+    const buffer = useBuffer ? new LRU(amount + 2) : null
+    let index = 0
+
+    const it = traverse(start, shouldStopTraversal)
+
+    for await (const entry of it) {
+      const skipFirst = (lt && Entry.isEqual(entry, start))
+      const skipLast = (gt && Entry.isEqual(entry, end))
+      const skip = skipFirst || skipLast
+      if (!skip) {
+        if (useBuffer) {
+          buffer.set(index++, entry.hash)
+        } else {
+          if(entry.payload.op === 'PUT' && check[entry.payload.key] === 1){
+            check[entry.payload.key] = 2
+            yield entry
+          }
+        }
+      }
+    }
+
+    if (useBuffer) {
+      const endIndex = buffer.keys.length
+      const startIndex = endIndex > amount ? endIndex - amount : 0
+      const keys = buffer.keys.slice(startIndex, endIndex)
+      for (const key of keys) {
+        const hash = buffer.get(key)
+        const entry = await get(hash)
+        if(entry.payload.op === 'PUT' && check[entry.payload.key] === 1){
+          check[entry.payload.key] = 2
+          yield entry
+        }
+      }
+    }
+  }
+
   /**
    * Clear all entries from the log and the underlying storages
    * @memberof module:Log~Log
