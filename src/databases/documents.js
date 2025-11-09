@@ -158,6 +158,7 @@ const Documents = ({ indexBy } = DefaultOptions) => async ({ ipfs, identity, add
     del,
     get,
     iterator,
+    iter,
     query,
     indexBy,
     all

@@ -634,6 +634,7 @@ const Log = async (identity, { logId, logHeads, access, entryStorage, headsStora
     joinEntry,
     traverse,
     iterator,
+    iter,
     clear,
     close,
     access,
