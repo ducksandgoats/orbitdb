@@ -507,14 +507,15 @@ const Log = async (identity, { logId, logHeads, access, entryStorage, headsStora
 
     const amountToIterate = (end || amount === -1) ? -1 : amount
 
-    const check = {}
+    const counter = new Set()
+    const props = new Set()
     let count = 0
     const shouldStopTraversal = async (entry) => {
       if (!entry) {
         return false
       }
-      if(entry.payload.op === 'PUT' && !check[entry.payload.key]){
-        check[entry.payload.key] = 1
+      if(entry.payload.op === 'PUT' && !counter.has(entry.payload.key)){
+        counter.add(entry.payload.key)
         count++
       }
       if (count >= amountToIterate && amountToIterate !== -1) {
@@ -540,8 +541,8 @@ const Log = async (identity, { logId, logHeads, access, entryStorage, headsStora
         if (useBuffer) {
           buffer.set(index++, entry.hash)
         } else {
-          if(entry.payload.op === 'PUT' && check[entry.payload.key] === 1){
-            check[entry.payload.key] = 2
+          if(entry.payload.op === 'PUT' && !props.has(entry.payload.key)){
+            props.add(entry.payload.key)
             yield entry
           }
         }
@@ -555,8 +556,8 @@ const Log = async (identity, { logId, logHeads, access, entryStorage, headsStora
       for (const key of keys) {
         const hash = buffer.get(key)
         const entry = await get(hash)
-        if(entry.payload.op === 'PUT' && check[entry.payload.key] === 1){
-          check[entry.payload.key] = 2
+        if(entry.payload.op === 'PUT' && !props.has(entry.payload.key)){
+          props.add(entry.payload.key)
           yield entry
         }
       }
