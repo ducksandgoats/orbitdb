@@ -91,6 +91,12 @@ const KeyValue = () => async ({ ipfs, identity, address, name, access, directory
     }
   }
 
+  const iter = async function * (opts = {}) {
+    for await (const entry of log.iter(opts)) {
+      yield entry
+    }
+  }
+
   /**
    * Returns all key/value pairs.
    * @function
@@ -115,6 +121,7 @@ const KeyValue = () => async ({ ipfs, identity, address, name, access, directory
     del,
     get,
     iterator,
+    iter,
     all
   }
 }
